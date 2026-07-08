@@ -18,6 +18,9 @@ ui:
   default_locale: "fi" # Suomen kielen esivalinta käyttöliittymässä
   theme_args:
     simple_style: auto # Mukautuu automaattisesti käyttöjärjestelmän teemaan (tumma/vaalea)
+  categories_maps:
+    darkweb:
+      title: "Dark Web"
 
 server:
   # secret_key haetaan ympäristömuuttujasta SEARXNG_SECRET
@@ -44,6 +47,12 @@ engines:
   - name: bing
     disabled: true
 
+  # --- TOR-VAATIVAT DARK WEB -MOOTTORIT (vaativat Tor-proxyä, ei ole käytössä) ---
+  - name: ahmia
+    disabled: true
+  - name: torch
+    disabled: true
+
   # --- LUOTETTAVAT EI-LÄNSIMAISET HAKUKONEET ---
   - name: naver
     disabled: false
@@ -64,9 +73,11 @@ engines:
     weight: 1.2
   - name: duckduckgo
     disabled: false
+    categories: [general, darkweb]
     weight: 1.0
   - name: qwant
     disabled: false
+    categories: [general, darkweb]
     weight: 1.0
   - name: wikipedia
     disabled: false
@@ -108,6 +119,7 @@ engines:
   # --- YHTEISÖT JA UUTISET (UUSI) ---
   - name: reddit
     disabled: false
+    categories: [general, it, darkweb]
     weight: 1.0
 
   # --- HUGGING FACE (AI-MALLIT, DATASETIT, SPACES) ---
@@ -128,3 +140,6 @@ engines:
     huggingface_endpoint: spaces
     disabled: false
     weight: 1.0
+
+  # --- DARK WEB (vain, kun kategoria "darkweb" valitaan) ---
+  # Huom: kategoriat määritellään yllä olevissa moottoreissa

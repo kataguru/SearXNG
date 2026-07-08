@@ -85,6 +85,36 @@ Edit `searxng/settings.yml` under the `engines:` section. Each engine needs at m
 After editing, restart the container: `docker compose restart searxng-core`  
 Verify with logs: `docker compose logs searxng-core --tail=20`
 
+## Knowledge Retrieval Protocol
+
+### Source Selection by Query Type
+
+| Query Type | Primary Source | Secondary Verification |
+|---|---|---|
+| Code, API, framework docs | Context7 (`context7_query_docs`) | SearXNG web search |
+| General facts, news, fact-checking | SearXNG (`searxng_search_web`) + RAG (`rag_query_knowledge`) in parallel | Second source for confirmation |
+| Project content, past decisions | RAG (`rag_query_knowledge`) | Memory (`memory_search_nodes`) |
+
+### Verification Protocol
+
+1. Before answering: confirm data matches across at least **2 independent sources**
+2. If sources conflict → perform additional search (`searxng_search_web` or `context7_resolve_library_id` + `context7_query_docs`)
+3. If only one source finds results → indicate uncertainty in response ("Source X reports...")
+4. Never invent facts when no source is found → respond "En löydä tietoa tästä"
+
+### Search Strategy Optimization
+
+- **Before new search:** check RAG first (`rag_query_knowledge`) for existing knowledge on topic
+- **Self-classify queries:** "Is this a code question, general knowledge, or project-specific?" → pick source accordingly
+- **3-second timeout rule:** if a source doesn't respond within 3s, move to next source (no waiting)
+- **Store recurring facts and decisions** in RAG for future reuse (`rag_add_knowledge`)
+
+### Source-Specific Rules
+
+- **Code examples:** always Context7 first → SearXNG verification second
+- **Time-sensitive info:** always SearXNG first (RAG may be stale)
+- **Dark web queries:** rely primarily on DuckDuckGo via SearXNG (Qwant/Reddit may return "Connection blocked")
+
 ## MCP Servers
 
 Kilo connects to these local MCP servers via stdio transport (configured in `kilo.json`):
@@ -94,6 +124,7 @@ Kilo connects to these local MCP servers via stdio transport (configured in `kil
 | SearXNG | `searxng_mcp.py` | `searxng_search_web` | Web search proxy to local SearXNG instance |
 | RAG | `rag_mcp.py` | `rag_add_knowledge`, `rag_query_knowledge` | Query/ingest knowledge via Qdrant collection `agent_knowledge`. Requires env var `AGENT_ID`. |
 | Docker | `docker_mcp.py` | `list_containers`, `list_images`, `logs`, `start_container`, `stop_container`, `restart_container` | Manages Docker containers. Replaces podman-mcp-server (which requires Podman, not Docker Desktop). Requires global package `docker`. |
+| Context7 | `@upstash/context7-mcp` | `context7_resolve_library_id`, `context7_query_docs` | Code/docs search via Context7. Primary source for API and framework documentation queries. |
 
 ## Safety Rules
 
