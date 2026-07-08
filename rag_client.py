@@ -1,4 +1,5 @@
 import os
+import re
 import uuid
 from typing import List, Dict, Any, Optional
 from datetime import datetime
@@ -10,6 +11,9 @@ from qdrant_client.models import (
     Prefetch, NamedVector, NamedSparseVector, SparseVector, FusionQuery, Fusion
 )
 from fastembed import TextEmbedding, SparseTextEmbedding
+
+DEFAULT_CHUNK_SIZE_WORDS = 400
+DEFAULT_OVERLAP_PCT = 15
 
 class SharedAgentRAG:
     def __init__(
@@ -45,6 +49,42 @@ class SharedAgentRAG:
                 }
             )
 
+    def _chunk_text(self, text: str, chunk_size_words: int = DEFAULT_CHUNK_SIZE_WORDS, overlap_pct: int = DEFAULT_OVERLAP_PCT) -> List[str]:
+        """Split text into sentence-aware chunks with sliding window overlap."""
+        sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+        if not sentences or len(sentences) == 1 and ' ' in sentences[0] if sentences else True:
+            words = text.strip().split()
+            if len(words) <= chunk_size_words:
+                return [text.strip()]
+        
+        chunks = []
+        overlap_words = max(1, int(chunk_size_words * overlap_pct / 100))
+        step = chunk_size_words - overlap_words
+
+        pos = 0
+        sentence_word_counts = [len(s.split()) for s in sentences]
+
+        while pos < len(sentences):
+            current_chunk_sentences = []
+            current_words = 0
+
+            end = min(pos + len(sentences), len(sentences))
+            i = pos
+            while i < end:
+                if current_words + sentence_word_counts[i] > chunk_size_words and current_chunk_sentences:
+                    break
+                current_chunk_sentences.append(sentences[i])
+                current_words += sentence_word_counts[i]
+                i += 1
+
+            chunks.append(" ".join(current_chunk_sentences))
+            pos += max(step, 1)
+
+        if not chunks:
+            return [text.strip()]
+
+        return chunks
+
     def add_knowledge(
         self,
         text: str,
@@ -52,46 +92,68 @@ class SharedAgentRAG:
         session_id: str,
         scope: str = "shared",
         source: str = "manual",
-        extra_metadata: Optional[Dict[str, Any]] = None
-    ) -> str:
+        extra_metadata: Optional[Dict[str, Any]] = None,
+        chunk_size_words: int = DEFAULT_CHUNK_SIZE_WORDS
+    ) -> List[str]:
         """
         Embeds and adds a text document to the shared Qdrant RAG.
-        Generates dense and sparse vectors using FastEmbed.
+        Splits text into sentence-aware chunks with sliding window overlap (15%).
+        Generates dense and sparse vectors for each chunk using FastEmbed.
+        Returns list of doc IDs for all created points.
         """
-        doc_id = str(uuid.uuid4())
-        
-        # Compute embeddings
-        dense_vector = list(self.dense_model.embed([text]))[0].tolist()
-        sparse_embedding = list(self.sparse_model.embed([text]))[0]
-        
-        metadata = {
-            "text": text, # Store text in payload for retrieval
-            "agent_id": agent_id,
-            "session_id": session_id,
-            "scope": scope,
-            "source": source,
-            "created_at": datetime.utcnow().isoformat()
-        }
-        if extra_metadata:
-            metadata.update(extra_metadata)
-            
-        point = PointStruct(
-            id=doc_id,
-            vector={
-                "dense": dense_vector,
-                "sparse": SparseVector(
-                    indices=sparse_embedding.indices.tolist(),
-                    values=sparse_embedding.values.tolist()
-                )
-            },
-            payload=metadata
-        )
-        
-        self.client.upsert(
-            collection_name=self.collection_name,
-            points=[point]
-        )
-        return doc_id
+        base_doc_id = str(uuid.uuid4())
+
+        if not text.strip():
+            return []
+
+        chunks = self._chunk_text(text, chunk_size_words)
+
+        import uuid as _uuid
+        ns = _uuid.UUID(base_doc_id)
+
+        points = []
+        ids = []
+
+        for idx, chunk in enumerate(chunks):
+            point_id = str(_uuid.uuid5(ns, f"chunk_{idx}"))
+            ids.append(point_id)
+
+            dense_vector = list(self.dense_model.embed([chunk]))[0].tolist()
+            sparse_embedding = list(self.sparse_model.embed([chunk]))[0]
+
+            metadata = {
+                "text": chunk,
+                "agent_id": agent_id,
+                "session_id": session_id,
+                "scope": scope,
+                "source": source,
+                "created_at": datetime.utcnow().isoformat(),
+                "chunk_index": idx,
+                "total_chunks": len(chunks)
+            }
+            if extra_metadata:
+                metadata.update(extra_metadata)
+
+            point = PointStruct(
+                id=point_id,
+                vector={
+                    "dense": dense_vector,
+                    "sparse": SparseVector(
+                        indices=sparse_embedding.indices.tolist(),
+                        values=sparse_embedding.values.tolist()
+                    )
+                },
+                payload=metadata
+            )
+            points.append(point)
+
+        if points:
+            self.client.upsert(
+                collection_name=self.collection_name,
+                points=points
+            )
+
+        return ids
 
     def query_knowledge(
         self,
