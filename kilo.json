@@ -16,8 +16,7 @@
     },
     "docker_mcp": {
       "type": "local",
-      "command": ["D:\\SearXNG\\podman-mcp-server.exe"],
-      "environment": {"PATH": "%PATH%;C:\\Program Files\\Docker\\Docker\\resources\\bin"},
+      "command": ["python", "D:\\SearXNG\\docker_mcp.py"],
       "enabled": true,
       "timeout": 30000
     }
