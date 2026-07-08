@@ -16,6 +16,7 @@
     }
   },
   "permission": {
+    "memory_*": "allow",
     "searxng_mcp_searxng_search_web": "allow",
     "rag_mcp_rag_query_knowledge": "allow",
     "rag_mcp_rag_add_knowledge": "ask"
