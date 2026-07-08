@@ -33,7 +33,7 @@ server:
     Access-Control-Allow-Headers: "Content-Type, X-Requested-With"
 
 outgoing:
-  request_timeout: 1.5 # Erittäin lyhyt aikakatkaisu sekunteina. Estää hitaita tai estettyjä hakukoneita viivästyttämästä hakuja.
+  request_timeout: 3.0 # Tasapaino nopeuden ja kattavuuden välillä
 
 engines:
   # --- ESTETYT TAI MAKSULLISET HAKUKONEET (POISTETTU KÄYTÖSTÄ VIIVEIDEN JA CAPTCHAN VÄLTTÄMISEKSI) ---
@@ -78,16 +78,53 @@ engines:
     disabled: false
     weight: 1.0
 
-  # --- TIETEEL- JA PATENTTIHAKUKONEET ---
+  # --- TIETEELLIS- JA LÄÄKETIETEHAKUKONEET (LAAJENNETTU) ---
   - name: arxiv
     disabled: false
-    weight: 1.0
+    weight: 1.2
   - name: semantic scholar
     disabled: false
     weight: 1.0
   - name: pubmed
     disabled: false
     weight: 1.0
-  - name: google patents
+
+  # UUSI: Laajennetut tieteelliset moottorit
+  - name: google scholar
+    disabled: false
+    weight: 1.5
+  - name: crossref
+    disabled: false
+    weight: 1.0
+  - name: openalex
+    disabled: false
+    weight: 1.0
+
+  # --- TEKNIIKKA JA OHJELMOINTI (UUSI) ---
+  - name: stackoverflow
+    disabled: false
+    weight: 1.2
+
+  # --- YHTEISÖT JA UUTISET (UUSI) ---
+  - name: reddit
+    disabled: false
+    weight: 1.0
+
+  # --- HUGGING FACE (AI-MALLIT, DATASETIT, SPACES) ---
+  - name: huggingface
+    engine: huggingface
+    shortcut: hf
+    disabled: false
+    weight: 1.2
+  - name: huggingface datasets
+    engine: huggingface
+    shortcut: hfd
+    huggingface_endpoint: datasets
+    disabled: false
+    weight: 1.0
+  - name: huggingface spaces
+    engine: huggingface
+    shortcut: hfs
+    huggingface_endpoint: spaces
     disabled: false
     weight: 1.0
