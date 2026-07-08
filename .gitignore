@@ -1,0 +1,10 @@
+.env
+__pycache__/
+*.pyc
+.kilo/node_modules/
+paperless/consume/
+searxng/lib/
+searxng/templates/
+searxng/local_settings.py
+*.lnk
+paperless_sync_state.json

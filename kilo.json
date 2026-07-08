@@ -1,0 +1,23 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "mcp": {
+    "searxng_mcp": {
+      "type": "local",
+      "command": ["python", "D:\\SearXNG\\searxng_mcp.py"],
+      "enabled": true,
+      "timeout": 30000
+    },
+    "rag_mcp": {
+      "type": "local",
+      "command": ["python", "D:\\SearXNG\\rag_mcp.py"],
+      "environment": {"AGENT_ID": "kilo_main"},
+      "enabled": true,
+      "timeout": 60000
+    }
+  },
+  "permission": {
+    "searxng_mcp_searxng_search_web": "allow",
+    "rag_mcp_rag_query_knowledge": "allow",
+    "rag_mcp_rag_add_knowledge": "ask"
+  }
+}

@@ -1,0 +1,93 @@
+use_default_settings: true
+
+general:
+  debug: false
+  instance_name: "SearXNG (Paikallinen)"
+  contact_url: false
+
+search:
+  safe_search: 1 # 0 = Ei mitään, 1 = Kohtuullinen (oletus), 2 = Tiukka
+  autocomplete: 'duckduckgo' # Luotettava ja nopea täydennyspalvelu
+  formats:
+    - html # selainkäyttö
+    - json # ohjelmallinen käyttö (rajapinta)
+    - csv  # taulukkomuotoinen käyttö
+
+ui:
+  default_theme: simple
+  default_locale: "fi" # Suomen kielen esivalinta käyttöliittymässä
+  theme_args:
+    simple_style: auto # Mukautuu automaattisesti käyttöjärjestelmän teemaan (tumma/vaalea)
+
+server:
+  # secret_key haetaan ympäristömuuttujasta SEARXNG_SECRET
+  limiter: false # Ei rajoiteta kyselyjä paikallisessa käytössä
+  image_proxy: true # Suojataan käyttäjän IP-osoite kuvahauissa lataamalla kuvat välityspalvelimen kautta
+  default_http_headers:
+    X-Content-Type-Options: nosniff
+    X-Download-Options: noopen
+    Referrer-Policy: no-referrer
+    # CORS-sallinnat ohjelmallista yhteiskäyttöä varten
+    Access-Control-Allow-Origin: "*"
+    Access-Control-Allow-Methods: "GET, POST, OPTIONS"
+    Access-Control-Allow-Headers: "Content-Type, X-Requested-With"
+
+outgoing:
+  request_timeout: 1.5 # Erittäin lyhyt aikakatkaisu sekunteina. Estää hitaita tai estettyjä hakukoneita viivästyttämästä hakuja.
+
+engines:
+  # --- ESTETYT TAI MAKSULLISET HAKUKONEET (POISTETTU KÄYTÖSTÄ VIIVEIDEN JA CAPTCHAN VÄLTTÄMISEKSI) ---
+  - name: google
+    disabled: true
+  - name: yandex
+    disabled: true
+  - name: bing
+    disabled: true
+
+  # --- LUOTETTAVAT EI-LÄNSIMAISET HAKUKONEET ---
+  - name: naver
+    disabled: false
+    weight: 1.0
+  - name: seznam
+    disabled: false
+    weight: 1.0
+  - name: sogou
+    disabled: false
+    weight: 1.0
+  - name: baidu
+    disabled: false
+    weight: 1.0
+
+  # --- LÄNSIMAISET TURVALLISET JA NOPEAT HAKUKONEET ---
+  - name: brave
+    disabled: false
+    weight: 1.2
+  - name: duckduckgo
+    disabled: false
+    weight: 1.0
+  - name: qwant
+    disabled: false
+    weight: 1.0
+  - name: wikipedia
+    disabled: false
+    weight: 1.0
+  - name: wikidata
+    disabled: false
+    weight: 1.0
+  - name: github
+    disabled: false
+    weight: 1.0
+
+  # --- TIETEEL- JA PATENTTIHAKUKONEET ---
+  - name: arxiv
+    disabled: false
+    weight: 1.0
+  - name: semantic scholar
+    disabled: false
+    weight: 1.0
+  - name: pubmed
+    disabled: false
+    weight: 1.0
+  - name: google patents
+    disabled: false
+    weight: 1.0

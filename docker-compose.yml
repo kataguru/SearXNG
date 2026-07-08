@@ -1,0 +1,88 @@
+name: searxng
+
+services:
+  valkey:
+    image: docker.io/valkey/valkey:8-alpine
+    container_name: searxng-valkey
+    restart: always
+    command: valkey-server --save 60 1 --loglevel warning
+    volumes:
+      - valkey-data:/data
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+
+  searxng:
+    image: docker.io/searxng/searxng:latest
+    container_name: searxng-core
+    restart: always
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      - SEARXNG_SECRET=${SEARXNG_SECRET}
+      - SEARXNG_BASE_URL=http://localhost:8080
+      - REDIS_URL=redis://valkey:6379/0
+    depends_on:
+      - valkey
+
+  qdrant:
+    image: docker.io/qdrant/qdrant:latest
+    container_name: searxng-qdrant
+    restart: always
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+
+  db:
+    image: docker.io/library/postgres:16-alpine
+    container_name: paperless-db
+    restart: always
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=paperless
+      - POSTGRES_USER=paperless
+      - POSTGRES_PASSWORD=${PAPERLESS_DB_PASSWORD}
+
+  paperless:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    container_name: paperless-ngx
+    restart: always
+    ports:
+      - "8010:8000"
+    volumes:
+      - paperless-data:/usr/src/paperless/data
+      - paperless-media:/usr/src/paperless/media
+      - ./paperless/consume:/usr/src/paperless/consume
+      - ./paperless/export:/usr/src/paperless/export
+    environment:
+      - PAPERLESS_REDIS=redis://valkey:6379/1
+      - PAPERLESS_DBENGINE=postgresql
+      - PAPERLESS_DBHOST=db
+      - PAPERLESS_DBUSER=paperless
+      - PAPERLESS_DBPASS=${PAPERLESS_DB_PASSWORD}
+      - PAPERLESS_SECRET_KEY=${PAPERLESS_SECRET_KEY}
+      - PAPERLESS_OCR_LANGUAGES=fin
+      - PAPERLESS_OCR_LANGUAGE=eng+fin
+      - PAPERLESS_URL=http://localhost:8010
+      - PAPERLESS_PORT=8000
+      - PAPERLESS_CONSUMER_POLLING=10
+      - PAPERLESS_ADMIN_USER=${PAPERLESS_ADMIN_USER}
+      - PAPERLESS_ADMIN_PASSWORD=${PAPERLESS_ADMIN_PASSWORD}
+    depends_on:
+      - valkey
+      - db
+
+volumes:
+  valkey-data:
+  qdrant-data:
+  paperless-data:
+  paperless-media:
+  pgdata:
