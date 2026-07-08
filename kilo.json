@@ -13,10 +13,24 @@
       "environment": {"AGENT_ID": "kilo_main"},
       "enabled": true,
       "timeout": 60000
+    },
+    "docker_mcp": {
+      "type": "local",
+      "command": ["D:\\SearXNG\\podman-mcp-server.exe"],
+      "environment": {"PATH": "%PATH%;C:\\Program Files\\Docker\\Docker\\resources\\bin"},
+      "enabled": true,
+      "timeout": 30000
     }
   },
   "permission": {
     "memory_*": "allow",
+    "docker_mcp_list_containers": "allow",
+    "docker_mcp_list_images": "allow",
+    "docker_mcp_logs": "allow",
+    "docker_mcp_start_container": "ask",
+    "docker_mcp_stop_container": "ask",
+    "docker_mcp_restart_container": "ask",
+    "docker_mcp_*": "ask",
     "searxng_mcp_searxng_search_web": "allow",
     "rag_mcp_rag_query_knowledge": "allow",
     "rag_mcp_rag_add_knowledge": "ask"

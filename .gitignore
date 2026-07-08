@@ -8,3 +8,4 @@ searxng/templates/
 searxng/local_settings.py
 *.lnk
 paperless_sync_state.json
+podman-mcp-server.exe
