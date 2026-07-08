@@ -193,7 +193,7 @@ class SharedAgentRAG:
         query_text: str,
         agent_id: str,
         search_scope: str = "shared_or_private",
-        limit: int = 5
+        limit: int = 10
     ) -> List[Dict[str, Any]]:
         """
         Queries the vector store using hybrid search (Dense + Sparse).
