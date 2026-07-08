@@ -49,39 +49,72 @@ class SharedAgentRAG:
                 }
             )
 
+    def _split_sentences(self, text: str) -> List[str]:
+        """Split PDF-extracted text into real sentences.
+        Handles: abbreviations (Mod., Dr.), section numbers (2.1), decimal numbers (5.13),
+        TOC dot leaders (. . .), and page headers/footers."""
+        # Strip whitespace-only lines, normalize repeated newlines to paragraph breaks
+        text = re.sub(r'\n{3,}', '\n\n', text.strip())
+
+        parts = []
+        for para in text.split('\n\n'):
+            cleaned = ' '.join(para.split()).strip()
+            if not cleaned:
+                continue
+            # Skip TOC entries with dot leaders (5+ dots including spaces)
+            dot_count = sum(1 for c in cleaned if c == '.')
+            if dot_count > 10 and len(cleaned.replace('.', '')) < dot_count * 3:
+                continue
+            parts.append(cleaned)
+
+        sentences = []
+        for p in parts:
+            # Split on sentence-ending punctuation followed by capital letter
+            sub_parts = re.split(r'(?<=[.!?])\s+(?=[A-Z])', p.strip())
+            for sp in sub_parts:
+                sp = sp.strip()
+                if len(sp) > 5 and not re.match(r'^\d+[\.\s-]', sp):
+                    sentences.append(sp)
+
+        return sentences
+
     def _chunk_text(self, text: str, chunk_size_words: int = DEFAULT_CHUNK_SIZE_WORDS, overlap_pct: int = DEFAULT_OVERLAP_PCT) -> List[str]:
-        """Split text into sentence-aware chunks with sliding window overlap."""
-        sentences = re.split(r'(?<=[.!?])\s+', text.strip())
-        if not sentences or len(sentences) == 1 and ' ' in sentences[0] if sentences else True:
-            words = text.strip().split()
-            if len(words) <= chunk_size_words:
-                return [text.strip()]
-        
+        """Split text into sentence-aware chunks with sliding window overlap.
+        Each chunk ends at a sentence boundary. Next chunk starts from the
+        last (1 - overlap_pct) sentences of the current chunk."""
+        sentences = self._split_sentences(text.strip())
+
+        words = text.strip().split()
+        if len(words) <= chunk_size_words or not sentences:
+            return [text.strip()] if words else []
+
         chunks = []
-        overlap_words = max(1, int(chunk_size_words * overlap_pct / 100))
-        step = chunk_size_words - overlap_words
+        i = 0
 
-        pos = 0
-        sentence_word_counts = [len(s.split()) for s in sentences]
-
-        while pos < len(sentences):
+        while i < len(sentences):
             current_chunk_sentences = []
             current_words = 0
 
-            end = min(pos + len(sentences), len(sentences))
-            i = pos
-            while i < end:
-                if current_words + sentence_word_counts[i] > chunk_size_words and current_chunk_sentences:
+            j = i
+            while j < len(sentences):
+                sw = len(sentences[j].split())
+                if current_words + sw > chunk_size_words and current_chunk_sentences:
                     break
-                current_chunk_sentences.append(sentences[i])
-                current_words += sentence_word_counts[i]
-                i += 1
+                current_chunk_sentences.append(sentences[j])
+                current_words += sw
+                j += 1
 
             chunks.append(" ".join(current_chunk_sentences))
-            pos += max(step, 1)
 
-        if not chunks:
-            return [text.strip()]
+            n = len(current_chunk_sentences)
+            if n == 0:
+                i += 1
+                continue
+
+            # Next chunk starts from the overlap portion (last floor(n*overlap_pct/100) sentences)
+            overlap_count = max(1, int(n * overlap_pct / 100))
+            move_back = min(overlap_count, n - 1) if n > 1 else 0
+            i += max(n - move_back, 1)
 
         return chunks
 
