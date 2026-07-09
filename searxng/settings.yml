@@ -36,7 +36,7 @@ server:
     Access-Control-Allow-Headers: "Content-Type, X-Requested-With"
 
 outgoing:
-  request_timeout: 3.0 # Tasapaino nopeuden ja kattavuuden välillä
+  request_timeout: 5.0 # Tasapaino nopeuden ja kattavuuden välillä (akateemiset moottorit)
 
 engines:
   # --- ESTETYT TAI MAKSULLISET HAKUKONEET (POISTETTU KÄYTÖSTÄ VIIVEIDEN JA CAPTCHAN VÄLTTÄMISEKSI) ---
@@ -69,14 +69,14 @@ engines:
 
   # --- LÄNSIMAISET TURVALLISET JA NOPEAT HAKUKONEET ---
   - name: brave
-    disabled: false
+    disabled: true
     weight: 1.2
   - name: duckduckgo
     disabled: false
     categories: [general, darkweb]
     weight: 1.0
   - name: qwant
-    disabled: false
+    disabled: true
     categories: [general, darkweb]
     weight: 1.0
   - name: wikipedia
@@ -111,14 +111,27 @@ engines:
     disabled: false
     weight: 1.0
 
-  # --- TEKNIIKKA JA OHJELMOINTI (UUSI) ---
+  # --- TEKNIIKKA JA OHJELMOINTI ---
   - name: stackoverflow
+    disabled: false
+    weight: 1.2
+
+  # --- LASKENNALLINEN HAKU ---
+  - name: wolframalpha
+    disabled: false
+    weight: 1.0
+
+  # --- KIINALAINEN PERINTEINEN LÄÄKETIEDE (TCM) ---
+  - name: weibo
+    disabled: false
+    weight: 1.0
+  - name: cnki
     disabled: false
     weight: 1.2
 
   # --- YHTEISÖT JA UUTISET (UUSI) ---
   - name: reddit
-    disabled: false
+    disabled: true
     categories: [general, it, darkweb]
     weight: 1.0
 

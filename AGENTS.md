@@ -64,14 +64,16 @@ Results include `title`, `url`, `content` fields. SearXNG routes to external eng
 
 ### Active Search Engines (`searxng/settings.yml`)
 
-**General Web:** Brave, DuckDuckGo, Qwant, Naver, Baidu, Sogou, Seznam  
+**General Web:** DuckDuckGo, Naver, Baidu, Sogou, Seznam  
 **Reference:** Wikipedia, Wikidata, GitHub  
 **Science & Medicine:** arXiv, Semantic Scholar, PubMed, Google Scholar, CrossRef, OpenAlex  
 **AI Models (HuggingFace):** huggingface (models), huggingface datasets, huggingface spaces  
-**Tech & IT:** StackOverflow, MDN, Docker Hub  
-**Community:** Reddit  
+**Tech & IT:** StackOverflow, WolframAlpha  
+**Chinese TCM:** Weibo, CNKI  
 
-Timeout is set to 3.0s for balanced coverage vs speed. Disabled engines: Google, Yandex, Bing (CAPTCHA/rate-limit issues).
+Disabled engines: Google, Yandex, Bing (CAPTCHA/rate-limit issues), Brave, Qwant, Reddit (persistent access denied).
+
+Timeout is set to 5.0s for balanced coverage vs speed (increased from 3.0s to accommodate academic engines).
 
 ### Adding/Removing Engines
 
@@ -113,7 +115,7 @@ Verify with logs: `docker compose logs searxng-core --tail=20`
 
 - **Code examples:** always Context7 first → SearXNG verification second
 - **Time-sensitive info:** always SearXNG first (RAG may be stale)
-- **Dark web queries:** rely primarily on DuckDuckGo via SearXNG (Qwant/Reddit may return "Connection blocked")
+- **Dark web queries:** rely primarily on DuckDuckGo via SearXNG
 
 ## MCP Servers
 
