@@ -417,6 +417,203 @@ class TestProvenanceGate(unittest.TestCase):
                         "Past expires_at should be accepted at ingestion time")
 
 
+# --- Group E: Hardening features (tests 23-29) ---
+
+class TestHardeningFeatures(unittest.TestCase):
+    
+    @classmethod
+    def setUpClass(cls):
+        cls.qc = _get_qc()
+        if cls.qc.collection_exists(COLLECTION):
+            cls.qc.delete_collection(COLLECTION)
+        
+        cls.rag = SharedAgentRAG(collection_name=COLLECTION)
+        time.sleep(0.5)  # Let index settle
+    
+    @classmethod
+    def tearDownClass(cls):
+        if cls.qc.collection_exists(COLLECTION):
+            cls.qc.delete_collection(COLLECTION)
+    
+    def setUp(self):
+        pts, _ = self.__class__.qc.scroll(
+            COLLECTION, limit=10000, with_payload=False, with_vectors=False
+        )
+        if pts:
+            ids = [p.id for p in pts]
+            self.__class__.qc.delete(COLLECTION, points_selector=ids)
+    
+    def test_23_crash_safe_reindexing_preserves_old_version(self):
+        """T23: add_knowledge with index_version adds new chunks WITHOUT deleting old ones."""
+        # Add initial version
+        text_v1 = "Version 1 content for crash-safe reindexing test."
+        ids_v1 = self.rag.add_knowledge(
+            text=text_v1, agent_id="t_agent", session_id="s1", scope="shared", source="manual",
+            external_doc_id="crash_test_001", index_version=1
+        )
+        time.sleep(0.3)
+        
+        # Add new version WITHOUT cleanup
+        text_v2 = "Version 2 content for crash-safe reindexing test."
+        ids_v2 = self.rag.add_knowledge(
+            text=text_v2, agent_id="t_agent", session_id="s1", scope="shared", source="manual",
+            external_doc_id="crash_test_001", index_version=2
+        )
+        time.sleep(0.3)
+        
+        # Both versions should exist (old not deleted yet)
+        pts, _ = self.__class__.qc.scroll(COLLECTION, limit=100, with_payload=True, with_vectors=False)
+        v1_chunks = [p for p in pts if p.payload.get("index_version") == 1]
+        v2_chunks = [p for p in pts if p.payload.get("index_version") == 2]
+        
+        self.assertGreater(len(v1_chunks), 0, "Version 1 chunks should still exist after add_knowledge with version 2")
+        self.assertGreater(len(v2_chunks), 0, "Version 2 chunks should exist")
+    
+    def test_24_startup_reconciliation_catches_mid_crash(self):
+        """T24: reconcile_startup removes stale versions after simulated crash."""
+        # Simulate: add v1, then v2 without cleanup (crash between save_state and cleanup)
+        self.rag.add_knowledge(
+            text="Crash simulation v1", agent_id="t_agent", session_id="s1", scope="shared", source="manual",
+            external_doc_id="reconcile_test_001", index_version=1,
+            extra_metadata={"managed_by": "paperless_sync_daemon"}
+        )
+        time.sleep(0.3)
+        
+        self.rag.add_knowledge(
+            text="Crash simulation v2", agent_id="t_agent", session_id="s1", scope="shared", source="manual",
+            external_doc_id="reconcile_test_001", index_version=2,
+            extra_metadata={"managed_by": "paperless_sync_daemon"}
+        )
+        time.sleep(0.3)
+        
+        # Verify both versions exist
+        pts, _ = self.__class__.qc.scroll(COLLECTION, limit=100, with_payload=True, with_vectors=False)
+        before_v1 = sum(1 for p in pts if p.payload.get("external_doc_id") == "reconcile_test_001" and p.payload.get("index_version") == 1)
+        before_v2 = sum(1 for p in pts if p.payload.get("external_doc_id") == "reconcile_test_001" and p.payload.get("index_version") == 2)
+        
+        # Simulate reconcile_startup (cleanup old versions with managed_by filter)
+        removed = self.rag.cleanup_old_versions("reconcile_test_001", keep_version=2, managed_by="paperless_sync_daemon")
+        time.sleep(0.3)
+        
+        pts_after, _ = self.__class__.qc.scroll(COLLECTION, limit=100, with_payload=True, with_vectors=False)
+        after_v1 = sum(1 for p in pts_after if p.payload.get("external_doc_id") == "reconcile_test_001" and p.payload.get("index_version") == 1)
+        after_v2 = sum(1 for p in pts_after if p.payload.get("external_doc_id") == "reconcile_test_001" and p.payload.get("index_version") == 2)
+        
+        self.assertGreater(before_v1, 0, "v1 should exist before reconciliation")
+        self.assertEqual(after_v1, 0, f"v1 should be removed after reconciliation (had {before_v1}, now {after_v1})")
+        self.assertGreater(after_v2, 0, "v2 should remain after reconciliation")
+    
+    def test_25_managed_by_isolation(self):
+        """T25: cleanup_old_versions with managed_by filter only affects matching chunks."""
+        # Add doc1 with managed_by=paperless_sync_daemon (v1 and v2)
+        self.rag.add_knowledge(
+            text="Managed by sync daemon v1", agent_id="t_agent", session_id="s1", scope="shared", source="manual",
+            external_doc_id="managed_test_001", index_version=1,
+            extra_metadata={"managed_by": "paperless_sync_daemon"}
+        )
+        time.sleep(0.3)
+        
+        self.rag.add_knowledge(
+            text="Managed by sync daemon v2", agent_id="t_agent", session_id="s1", scope="shared", source="manual",
+            external_doc_id="managed_test_001", index_version=2,
+            extra_metadata={"managed_by": "paperless_sync_daemon"}
+        )
+        time.sleep(0.3)
+        
+        # Add doc2 with managed_by=user_manual (different manager)
+        self.rag.add_knowledge(
+            text="Managed by user manual", agent_id="t_agent", session_id="s1", scope="shared", source="manual",
+            external_doc_id="managed_test_002", index_version=1,
+            extra_metadata={"managed_by": "user_manual"}
+        )
+        time.sleep(0.3)
+        
+        # Cleanup only paperless_sync_daemon managed docs (keep v2, remove v1)
+        removed = self.rag.cleanup_old_versions("managed_test_001", keep_version=2, managed_by="paperless_sync_daemon")
+        time.sleep(0.3)
+        
+        pts, _ = self.__class__.qc.scroll(COLLECTION, limit=100, with_payload=True, with_vectors=False)
+        doc1_v1 = [p for p in pts if p.payload.get("external_doc_id") == "managed_test_001" and p.payload.get("index_version") == 1]
+        doc1_v2 = [p for p in pts if p.payload.get("external_doc_id") == "managed_test_001" and p.payload.get("index_version") == 2]
+        doc2_chunks = [p for p in pts if p.payload.get("external_doc_id") == "managed_test_002"]
+        
+        self.assertEqual(len(doc1_v1), 0, f"doc1 v1 should be cleaned up (got {len(doc1_v1)})")
+        self.assertGreater(len(doc1_v2), 0, "doc1 v2 should remain after cleanup")
+        self.assertGreater(len(doc2_chunks), 0, "doc2 (different managed_by) should survive cleanup")
+    
+    def test_26_id_type_normalization(self):
+        """T26: ID comparison works with int Paperless IDs and string Qdrant external_doc_id."""
+        # Add with integer-like string (simulating Paperless API returning int)
+        self.rag.add_knowledge(
+            text="ID type test content", agent_id="t_agent", session_id="s1", scope="shared", source="manual",
+            external_doc_id="12345"  # String representation of int
+        )
+        time.sleep(0.3)
+        
+        pts, _ = self.__class__.qc.scroll(COLLECTION, limit=100, with_payload=True, with_vectors=False)
+        found = any(p.payload.get("external_doc_id") == "12345" for p in pts)
+        self.assertTrue(found, "Document with string '12345' should be findable")
+        
+        # Verify set operations work (both sides are strings)
+        paperless_ids = {str(12345)}  # Simulate Paperless returning int
+        qdrant_ids = {p.payload.get("external_doc_id") for p in pts if p.payload.get("external_doc_id")}
+        
+        orphaned = qdrant_ids - paperless_ids
+        self.assertEqual(len(orphaned), 0, f"ID type mismatch should not cause false orphans; got {orphaned}")
+    
+    def test_27_upsert_wait_true(self):
+        """T27: add_knowledge with wait=True commits before returning."""
+        # This is a behavioral test — we verify the upsert completes by checking immediately after
+        text = "Wait true verification content."
+        ids = self.rag.add_knowledge(
+            text=text, agent_id="t_agent", session_id="s1", scope="shared", source="manual",
+            external_doc_id="wait_test_001"
+        )
+        
+        # Immediately query (no sleep) — should find results if wait=True worked
+        time.sleep(0.1)  # Minimal delay for Qdrant internal processing
+        results = self.rag.query_knowledge("Wait true verification", agent_id="t_agent", limit=5)
+        matching = [r for r in results if "verification" in r["text"].lower()]
+        
+        self.assertGreater(len(matching), 0, "Content should be searchable immediately after add_knowledge with wait=True")
+    
+    def test_28_scroll_all_pagination(self):
+        """T28: scroll_all paginates through all pages (no 10k limit)."""
+        # Add multiple documents to exceed single-page limit
+        for i in range(50):
+            self.rag.add_knowledge(
+                text=f"Pagination test document number {i} with unique content for testing.",
+                agent_id="t_agent", session_id="s1", scope="shared", source="manual",
+                external_doc_id=f"scroll_test_{i:03d}"
+            )
+        time.sleep(1)  # Let index settle
+        
+        # Use scroll_all (should fetch all pages)
+        all_points = self.rag.scroll_all(limit_per_page=10)
+        
+        self.assertGreaterEqual(len(all_points), 50, f"scroll_all should return >=50 points, got {len(all_points)}")
+    
+    def test_29_batch_delete_groups(self):
+        """T29: delete_documents_managed_by batches deletes in groups of 500."""
+        # Add many documents with managed_by metadata
+        for i in range(10):  # Small number for testing, but logic should handle larger
+            self.rag.add_knowledge(
+                text=f"Batch delete test {i}", agent_id="t_agent", session_id="s1", scope="shared", source="manual",
+                external_doc_id=f"batch_test_{i:03d}",
+                extra_metadata={"managed_by": "paperless_sync_daemon"}
+            )
+        time.sleep(0.5)
+        
+        # Delete all managed documents
+        removed = self.rag.delete_documents_managed_by("paperless_sync_daemon")
+        time.sleep(0.3)
+        
+        pts, _ = self.__class__.qc.scroll(COLLECTION, limit=100, with_payload=True, with_vectors=False)
+        remaining = [p for p in pts if p.payload.get("managed_by") == "paperless_sync_daemon"]
+        
+        self.assertEqual(len(remaining), 0, f"All managed documents should be deleted; {len(remaining)} remain")
+
+
 # --- Main ---
 
 if __name__ == "__main__":

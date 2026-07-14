@@ -553,8 +553,8 @@ class SharedAgentRAG:
             ext_id = str(point.payload.get("external_doc_id", "")) if point.payload.get("external_doc_id") is not None else None
             version = point.payload.get("index_version", 0)
 
-            # Keep if: no external_doc_id, OR version matches the max for this doc
-            keep = (ext_id == "") or (version == max_versions.get(ext_id, 0))
+            # Keep if: no external_doc_id (ungrouped docs always kept), OR version matches the max for this doc
+            keep = (ext_id is None) or (ext_id == "") or (version == max_versions.get(ext_id, 0))
             if keep and point.id not in seen_ids:
                 deduplicated.append({
                     "id": point.id,
