@@ -1,0 +1,205 @@
+{
+  "description": "Finnish ground-truth dataset for BM25 retrieval evaluation",
+  "version": "1.0",
+  "created": "2026-07-14",
+  "queries": [
+    {
+      "id": "q001",
+      "query": "suomen kieli",
+      "description": "Base form query for Finnish language",
+      "expected_relevant": ["doc_finnish_language"],
+      "category": "base_form"
+    },
+    {
+      "id": "q002", 
+      "query": "suomessa puhutaan",
+      "description": "Inflected query (inessive case)",
+      "expected_relevant": ["doc_finnish_language"],
+      "category": "inflection"
+    },
+    {
+      "id": "q003",
+      "query": "opiskella suomi yliopisto",
+      "description": "Base form query for inflected document",
+      "expected_relevant": ["doc_study_finnish"],
+      "category": "inflection"
+    },
+    {
+      "id": "q004",
+      "query": "Rautatientori Helsinki liikenne",
+      "description": "Compound word exact match",
+      "expected_relevant": ["doc_helsinki_transport"],
+      "category": "compound_word"
+    },
+    {
+      "id": "q005",
+      "query": "Pekka Streng poliitikko",
+      "description": "Person name search",
+      "expected_relevant": ["doc_pekka_streng"],
+      "category": "person_name"
+    },
+    {
+      "id": "q006",
+      "query": "Nokia teknologiayhtiö",
+      "description": "Product/brand name search",
+      "expected_relevant": ["doc_nokia_tech"],
+      "category": "product_name"
+    },
+    {
+      "id": "q007",
+      "query": "Qdrant 1.7.0 hybridihaku",
+      "description": "Technical identifier with version number",
+      "expected_relevant": ["doc_qdrant_features"],
+      "category": "technical_id"
+    },
+    {
+      "id": "q008",
+      "query": "ja kun hän tuli kotiin",
+      "description": "Query with Finnish stopwords",
+      "expected_relevant": ["doc_common_words"],
+      "category": "stopwords"
+    },
+    {
+      "id": "q009",
+      "query": "huoli öljyn hinta",
+      "description": "Query with ä and ö characters",
+      "expected_relevant": ["doc_ao_characters"],
+      "category": "special_chars"
+    },
+    {
+      "id": "q010",
+      "query": "Docker Kubernetes container",
+      "description": "English technical terms in Finnish context",
+      "expected_relevant": ["doc_docker_kubernetes"],
+      "category": "english_in_finnish"
+    },
+    {
+      "id": "q011",
+      "query": "yksityisyys metahaku",
+      "description": "Finnish compound word for privacy metasearch",
+      "expected_relevant": ["doc_searxng_privacy"],
+      "category": "compound_word"
+    },
+    {
+      "id": "q012",
+      "query": "Helsingin yliopisto opiskelu",
+      "description": "Genitive case query",
+      "expected_relevant": ["doc_helsinki_university"],
+      "category": "inflection"
+    },
+    {
+      "id": "q013",
+      "query": "Suomi Suomi Suomi",
+      "description": "Repeated word for BM25 frequency test",
+      "expected_relevant": ["doc_finnish_language"],
+      "category": "frequency"
+    },
+    {
+      "id": "q014",
+      "query": "ministeri hallitus hallinto",
+      "description": "Political terminology",
+      "expected_relevant": ["doc_pekka_streng"],
+      "category": "domain_specific"
+    },
+    {
+      "id": "q015",
+      "query": "matkapuhelin valmistaja Suomi",
+      "description": "Product category search",
+      "expected_relevant": ["doc_nokia_tech"],
+      "category": "product_category"
+    },
+    {
+      "id": "q016",
+      "query": "container orchestration DevOps",
+      "description": "English DevOps terms",
+      "expected_relevant": ["doc_docker_kubernetes"],
+      "category": "english_in_finnish"
+    },
+    {
+      "id": "q017",
+      "query": "versio 1.7.0 ominaisuudet",
+      "description": "Version number search",
+      "expected_relevant": ["doc_qdrant_features"],
+      "category": "technical_id"
+    },
+    {
+      "id": "q018",
+      "query": "keskeinen liikenne solmu",
+      "description": "Compound word parts",
+      "expected_relevant": ["doc_helsinki_transport"],
+      "category": "compound_word"
+    },
+    {
+      "id": "q019",
+      "query": "uralilainen kielikunta",
+      "description": "Academic/linguistic terminology",
+      "expected_relevant": ["doc_finnish_language"],
+      "category": "domain_specific"
+    },
+    {
+      "id": "q020",
+      "query": "kolmen vuoden ajan",
+      "description": "Temporal expression with inflection",
+      "expected_relevant": ["doc_study_finnish"],
+      "category": "inflection"
+    }
+  ],
+  "documents": {
+    "doc_finnish_language": {
+      "text": "Suomen kieli on suomenkielinen kieli joka kuuluu uralilaiseen kielikuntaan. Sitä puhutaan pääasiassa Suomessa ja muutamissa naapurimaissa.",
+      "external_doc_id": "bm25_groundtruth_001"
+    },
+    "doc_study_finnish": {
+      "text": "Hän opiskeli suomea yliopistossa kolmen vuoden ajan. Opiskelu oli haastavaa mutta palkitsevaa.",
+      "external_doc_id": "bm25_groundtruth_002"
+    },
+    "doc_helsinki_transport": {
+      "text": "Rautatientori on Helsingin keskeinen liikenne solmu. Sieltä lähtee junia, bussia ja raitiovaunuja ympäri kaupunkia.",
+      "external_doc_id": "bm25_groundtruth_003"
+    },
+    "doc_pekka_streng": {
+      "text": "Pekka Streng oli suomalainen poliitikko ja ministeri. Hän palveli hallituksessa useiden vuosien ajan.",
+      "external_doc_id": "bm25_groundtruth_004"
+    },
+    "doc_nokia_tech": {
+      "text": "Nokia on suomalainen teknologiayhtiö joka tunnetaan matkapuhelimistaan. Yhtiö perustettiin vuonna 1865.",
+      "external_doc_id": "bm25_groundtruth_005"
+    },
+    "doc_qdrant_features": {
+      "text": "Qdrant versio 1.7.0 tukee uusia ominaisuuksia kuten hybridihaku ja BM25-vektorit.",
+      "external_doc_id": "bm25_groundtruth_006"
+    },
+    "doc_common_words": {
+      "text": "Ja kun hän tuli kotiin hän söi ja juoi ja nukkui. Päivä oli pitkä mutta nyt aika levätä.",
+      "external_doc_id": "bm25_groundtruth_007"
+    },
+    "doc_ao_characters": {
+      "text": "Älä huoli about öljyn hinta tänään. Markkinat ovat epävakaita mutta toivo on vielä jäljellä.",
+      "external_doc_id": "bm25_groundtruth_008"
+    },
+    "doc_docker_kubernetes": {
+      "text": "Käytämme Dockeria ja Kubernetesia container orchestrationiin. DevOps-praktiikat paransivat deploymenttia.",
+      "external_doc_id": "bm25_groundtruth_009"
+    },
+    "doc_searxng_privacy": {
+      "text": "SearXNG on yksityisyyskunnioittava metahaku moottori. Se käyttää useita hakukoneita ja ei jäljitä käyttäjiä.",
+      "external_doc_id": "bm25_groundtruth_010"
+    },
+    "doc_helsinki_university": {
+      "text": "Helsingin yliopisto on Suomen vanhin ja suurin yliopisto. Siellä opiskellaan laajasti eri aloilla.",
+      "external_doc_id": "bm25_groundtruth_011"
+    }
+  },
+  "evaluation_metrics": [
+    "Recall@5",
+    "MRR@5", 
+    "NDCG@5",
+    "Precision@5"
+  ],
+  "comparison_methods": [
+    "dense_only",
+    "splade_en_dense",
+    "bm25_finnish",
+    "bm25_finnish_dense_rrf"
+  ]
+}
