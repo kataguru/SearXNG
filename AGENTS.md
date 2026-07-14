@@ -25,7 +25,7 @@ No virtualenv or requirements file exists. All scripts assume dependencies are a
 | Script | Purpose | Run command |
 |---|---|---|
 | `rag_client.py` | Hybrid RAG module (dense + sparse vectors via FastEmbed). Import only, do not run directly. | — |
-| `sync_daemon.py` | Polls Paperless API every 15s, indexes new documents into Qdrant collection `agent_knowledge`. State tracked in `paperless_sync_state.json`. | `python sync_daemon.py` or double-click `start_sync_daemon.bat` |
+| `sync_daemon.py` | Polls Paperless API every 15s, indexes new documents into Qdrant collection `agent_knowledge`. State tracked in `paperless_sync_state.json`. Auto-starts on login via `start_sync_daemon_auto.bat` (Windows Startup shortcut). | `python sync_daemon.py` or double-click `start_sync_daemon.bat` |
 | `test_rag.py` | Tests RAG ingestion + hybrid query across scope filters. Uses `test_agent_knowledge` collection (deleted before each run). Requires Qdrant running. | `python test_rag.py` |
 
 ## RAG Client Usage
