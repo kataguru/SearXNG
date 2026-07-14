@@ -39,20 +39,6 @@ outgoing:
   request_timeout: 5.0 # Tasapaino nopeuden ja kattavuuden välillä (akateemiset moottorit)
 
 engines:
-  # --- ESTETYT TAI MAKSULLISET HAKUKONEET (POISTETTU KÄYTÖSTÄ VIIVEIDEN JA CAPTCHAN VÄLTTÄMISEKSI) ---
-  - name: google
-    disabled: true
-  - name: yandex
-    disabled: true
-  - name: bing
-    disabled: true
-
-  # --- TOR-VAATIVAT DARK WEB -MOOTTORIT (vaativat Tor-proxyä, ei ole käytössä) ---
-  - name: ahmia
-    disabled: true
-  - name: torch
-    disabled: true
-
   # --- LUOTETTAVAT EI-LÄNSIMAISET HAKUKONEET ---
   - name: naver
     disabled: false
@@ -68,15 +54,8 @@ engines:
     weight: 1.0
 
   # --- LÄNSIMAISET TURVALLISET JA NOPEAT HAKUKONEET ---
-  - name: brave
-    disabled: true
-    weight: 1.2
   - name: duckduckgo
     disabled: false
-    categories: [general, darkweb]
-    weight: 1.0
-  - name: qwant
-    disabled: true
     categories: [general, darkweb]
     weight: 1.0
   - name: wikipedia
@@ -129,12 +108,6 @@ engines:
     disabled: false
     weight: 1.2
 
-  # --- YHTEISÖT JA UUTISET (UUSI) ---
-  - name: reddit
-    disabled: true
-    categories: [general, it, darkweb]
-    weight: 1.0
-
   # --- HUGGING FACE (AI-MALLIT, DATASETIT, SPACES) ---
   - name: huggingface
     engine: huggingface
@@ -153,6 +126,3 @@ engines:
     huggingface_endpoint: spaces
     disabled: false
     weight: 1.0
-
-  # --- DARK WEB (vain, kun kategoria "darkweb" valitaan) ---
-  # Huom: kategoriat määritellään yllä olevissa moottoreissa

@@ -1,10 +1,24 @@
+import os
 import time
+
+def load_env(path=".env"):
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    os.environ[k.strip()] = v.strip()
+
+load_env()
+
 from rag_client import SharedAgentRAG
 
 def test_rag():
     print("Ensuring fresh collection for tests...")
     from qdrant_client import QdrantClient
-    client = QdrantClient(url="http://localhost:6333")
+    api_key = os.getenv("QDRANT_API_KEY")
+    client = QdrantClient(url="http://localhost:6333", api_key=api_key)
     if client.collection_exists("test_agent_knowledge"):
         client.delete_collection("test_agent_knowledge")
         print("Deleted existing test collection.")

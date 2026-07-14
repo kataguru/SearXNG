@@ -86,6 +86,17 @@ async def searxng_search_web(
 
     if resp.status_code >= 500:
         return f"Error: SearXNG returned server error (status {resp.status_code}). Try again later."
+    elif resp.status_code >= 400:
+        error_messages = {
+            400: "Bad request",
+            401: "Unauthorized - check SearXNG authentication",
+            403: "Forbidden",
+            404: "Not found - check SearXNG URL and route",
+            422: "Unprocessable entity",
+            429: "Too many requests (rate limited)"
+        }
+        msg = error_messages.get(resp.status_code, f"Client error ({resp.status_code})")
+        return f"Error: SearXNG returned {msg} (status {resp.status_code})."
 
     try:
         data = resp.json()

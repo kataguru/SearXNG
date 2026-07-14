@@ -14,6 +14,11 @@ services:
       - SETGID
       - SETUID
       - DAC_OVERRIDE
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   searxng:
     image: docker.io/searxng/searxng:latest
@@ -28,7 +33,13 @@ services:
       - SEARXNG_BASE_URL=http://localhost:8080
       - REDIS_URL=redis://valkey:6379/0
     depends_on:
-      - valkey
+      valkey:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f 'http://localhost:8080/search?q=test&format=json' | grep -q '\"results\"' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
 
   qdrant:
     image: docker.io/qdrant/qdrant:latest
@@ -39,6 +50,13 @@ services:
       - "6334:6334"
     volumes:
       - qdrant-data:/qdrant/storage
+    environment:
+      - QDRANT__API_KEY=${QDRANT_API_KEY}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:6333/livez || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   db:
     image: docker.io/library/postgres:16-alpine
@@ -50,6 +68,11 @@ services:
       - POSTGRES_DB=paperless
       - POSTGRES_USER=paperless
       - POSTGRES_PASSWORD=${PAPERLESS_DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperless -d paperless"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   paperless:
     image: ghcr.io/paperless-ngx/paperless-ngx:latest
@@ -77,8 +100,15 @@ services:
       - PAPERLESS_ADMIN_USER=${PAPERLESS_ADMIN_USER}
       - PAPERLESS_ADMIN_PASSWORD=${PAPERLESS_ADMIN_PASSWORD}
     depends_on:
-      - valkey
-      - db
+      valkey:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/stats || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
 
 volumes:
   valkey-data:

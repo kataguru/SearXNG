@@ -1,10 +1,11 @@
 import os
 import re
-import uuid
+import uuid as _uuid
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from qdrant_client import QdrantClient
+from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.models import (
     Filter, FieldCondition, MatchValue, PointStruct, 
     VectorParams, SparseVectorParams, Distance,
@@ -27,29 +28,54 @@ class SharedAgentRAG:
         self.client = QdrantClient(url=url, api_key=api_key)
         
         # Load FastEmbed models locally
-        self.dense_model = TextEmbedding("BAAI/bge-small-en-v1.5")
+        self.dense_model = TextEmbedding("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
         self.sparse_model = SparseTextEmbedding("prithivida/Splade_PP_en_v1")
         
         # Initialize collection
         self._init_collection()
         print(f"SharedAgentRAG initialized targeting collection '{self.collection_name}'.")
 
-    def _init_collection(self):
-        if not self.client.collection_exists(self.collection_name):
-            self.client.create_collection(
-                collection_name=self.collection_name,
-                vectors_config={
-                    "dense": VectorParams(
-                        size=384, # bge-small-en-v1.5 dimension
-                        distance=Distance.COSINE
-                    )
-                },
-                sparse_vectors_config={
-                    "sparse": SparseVectorParams()
-                }
-            )
+    def list_collections(self) -> List[Dict[str, Any]]:
+        try:
+            cols = self.client.get_collections().collections
+            result = []
+            for c in cols:
+                info = self.client.get_collection(c.name)
+                result.append({
+                    "name": c.name,
+                    "vectors_count": info.vectors_count if hasattr(info, 'vectors_count') else info.points_count,
+                    "points_count": info.points_count,
+                })
+            return result
+        except UnexpectedResponse as e:
+            raise ConnectionError(f"Qdrant list collections failed: {e}") from e
 
-    def _split_sentences(self, text: str) -> List[str]:
+    def delete_collection(self, collection_name: str) -> bool:
+        try:
+            self.client.delete_collection(collection_name=collection_name)
+            return True
+        except UnexpectedResponse as e:
+            raise ConnectionError(f"Qdrant delete collection '{collection_name}' failed: {e}") from e
+
+    def _init_collection(self):
+        try:
+            if not self.client.collection_exists(self.collection_name):
+                self.client.create_collection(
+                    collection_name=self.collection_name,
+                    vectors_config={
+                        "dense": VectorParams(
+                            size=384, # paraphrase-multilingual-MiniLM-L12-v2 dimension
+                            distance=Distance.COSINE
+                        )
+                    },
+                    sparse_vectors_config={
+                        "sparse": SparseVectorParams()
+                    }
+                )
+        except UnexpectedResponse as e:
+            raise ConnectionError(f"Qdrant collection initialization failed for '{self.collection_name}': {e}") from e
+
+    def _split_sentences(self, text: str):
         """Split PDF-extracted text into real sentences.
         Handles: abbreviations (Mod., Dr.), section numbers (2.1), decimal numbers (5.13),
         TOC dot leaders (. . .), and page headers/footers."""
@@ -134,14 +160,13 @@ class SharedAgentRAG:
         Generates dense and sparse vectors for each chunk using FastEmbed.
         Returns list of doc IDs for all created points.
         """
-        base_doc_id = str(uuid.uuid4())
+        base_doc_id = str(_uuid.uuid4())
 
         if not text.strip():
             return []
 
         chunks = self._chunk_text(text, chunk_size_words)
 
-        import uuid as _uuid
         ns = _uuid.UUID(base_doc_id)
 
         points = []
@@ -160,7 +185,7 @@ class SharedAgentRAG:
                 "session_id": session_id,
                 "scope": scope,
                 "source": source,
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
                 "chunk_index": idx,
                 "total_chunks": len(chunks)
             }
@@ -181,10 +206,13 @@ class SharedAgentRAG:
             points.append(point)
 
         if points:
-            self.client.upsert(
-                collection_name=self.collection_name,
-                points=points
-            )
+            try:
+                self.client.upsert(
+                    collection_name=self.collection_name,
+                    points=points
+                )
+            except UnexpectedResponse as e:
+                raise ConnectionError(f"Qdrant upsert failed for collection '{self.collection_name}': {e}") from e
 
         return ids
 
@@ -192,9 +220,11 @@ class SharedAgentRAG:
         self,
         query_text: str,
         agent_id: str,
+        score_threshold: Optional[float] = None,
         search_scope: str = "shared_or_private",
         limit: int = 10
     ) -> List[Dict[str, Any]]:
+
         """
         Queries the vector store using hybrid search (Dense + Sparse).
         Configured for Option 3: Conceptual Search.
@@ -225,28 +255,32 @@ class SharedAgentRAG:
         sparse_embedding = list(self.sparse_model.embed([query_text]))[0]
 
         # Option 3 (Conceptual Search): 70% Dense (limit=50) / 30% Sparse (limit=20)
-        results = self.client.query_points(
-            collection_name=self.collection_name,
-            prefetch=[
-                Prefetch(
-                    query=dense_vector,
-                    using="dense",
-                    limit=50
-                ),
-                Prefetch(
-                    query=SparseVector(
-                        indices=sparse_embedding.indices.tolist(),
-                        values=sparse_embedding.values.tolist()
+        try:
+            results = self.client.query_points(
+                collection_name=self.collection_name,
+                prefetch=[
+                    Prefetch(
+                        query=dense_vector,
+                        using="dense",
+                        limit=50
                     ),
-                    using="sparse",
-                    limit=20
-                )
-            ],
-            query=FusionQuery(fusion=Fusion.RRF),
-            query_filter=filter_to_use,
-            limit=limit,
-            with_payload=True
-        )
+                    Prefetch(
+                        query=SparseVector(
+                            indices=sparse_embedding.indices.tolist(),
+                            values=sparse_embedding.values.tolist()
+                        ),
+                        using="sparse",
+                        limit=20
+                    )
+                ],
+                query=FusionQuery(fusion=Fusion.RRF),
+                query_filter=filter_to_use,
+                score_threshold=score_threshold,
+                limit=limit,
+                with_payload=True
+            )
+        except UnexpectedResponse as e:
+            raise ConnectionError(f"Qdrant query failed for collection '{self.collection_name}': {e}") from e
 
         parsed_results = []
         for point in results.points:

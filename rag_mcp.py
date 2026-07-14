@@ -43,6 +43,61 @@ mcp = FastMCP(
 
 
 @mcp.tool(
+    name="list_rag_collections",
+    annotations={
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False
+    }
+)
+async def list_rag_collections() -> str:
+    """List all Qdrant collections with point counts."""
+    try:
+        rag = _get_rag()
+        cols = rag.list_collections()
+        if not cols:
+            return "No collections found."
+        lines = ["# Qdrant Collections", f"Found {len(cols)} collection(s)"]
+        for c in cols:
+            lines.append(f"- **{c['name']}**: {c['points_count']} points, {c['vectors_count']} vectors")
+        return "\n".join(lines)
+    except ConnectionError:
+        return f"Error: Could not connect to Qdrant at {QDRANT_URL}."
+
+
+@mcp.tool(
+    name="delete_rag_collection",
+    annotations={
+        "readOnlyHint": False,
+        "destructiveHint": True,
+        "idempotentHint": False,
+        "openWorldHint": False
+    }
+)
+async def delete_rag_collection(collection: str = Field(..., description="Name of the Qdrant collection to delete")) -> str:
+    """Delete a Qdrant collection."""
+    try:
+        rag = _get_rag()
+        cols = rag.list_collections()
+        matching = [c for c in cols if c['name'] == collection]
+        point_count = matching[0]['points_count'] if matching else 0
+
+        from qdrant_client.http.exceptions import UnexpectedResponse
+        try:
+            rag.delete_collection(collection)
+        except UnexpectedResponse as e:
+            status_code = e.code if hasattr(e, 'code') else "unknown"
+            if status_code == 404 or (hasattr(e, 'message') and "not found" in str(e).lower()):
+                return f"Collection '{collection}' not found."
+            raise
+
+        return f"Collection '{collection}' deleted ({point_count} points removed)."
+    except ConnectionError:
+        return f"Error: Could not connect to Qdrant at {QDRANT_URL}."
+
+
+@mcp.tool(
     name="rag_add_knowledge",
     annotations={
         "readOnlyHint": False,
@@ -96,6 +151,10 @@ async def rag_add_knowledge(
 async def rag_query_knowledge(
     query: str = Field(..., min_length=1, max_length=500, description="Search query string"),
     limit: int = Field(default=5, ge=1, le=20, description="Max results to return (1-20)"),
+    score_threshold: Optional[float] = Field(
+        default=None, ge=0.0, le=1.0,
+        description="Minimum RRF fusion score (0-1). Results below this are filtered out."
+    ),
 ) -> str:
     """Query the shared agent RAG using hybrid search (dense + sparse vectors)."""
     try:
@@ -104,6 +163,7 @@ async def rag_query_knowledge(
         results = rag.query_knowledge(
             query_text=query,
             agent_id=AGENT_ID,
+            score_threshold=score_threshold,
             search_scope="shared",
             limit=limit
         )
