@@ -1,4 +1,4 @@
-use_default_settings: true
+﻿use_default_settings: true
 
 general:
   debug: false
@@ -100,7 +100,8 @@ engines:
     disabled: false
     weight: 1.0
 
-  # --- KIINALAINEN PERINTEINEN LÄÄKETIEDE (TCM) ---
+# --- KIINALAINEN PERINTEINEN LÄÄKETIEDE (TCM) ---
+  # Huom: weibo ja cnki vaativat oman engine-määrittelyn, jätä pois kunnes saadaan toimimaan
   - name: weibo
     disabled: false
     weight: 1.0

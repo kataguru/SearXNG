@@ -8,8 +8,8 @@ Project name: `searxng` (defined in docker-compose.yml)
 
 | Service | Image | Local Port | Notes |
 |---|---|---|---|
-| SearXNG | `searxng/searxng:latest` | 8080 | Metasearch; JSON API at `/search?format=json`. Healthcheck on port 8080 (note: current compose healthcheck uses HTML grep; use `format=json` for reliable checks). |
-| Qdrant | `qdrant/qdrant:latest` | 6333 (HTTP), 6334 (gRPC) | Vector DB for RAG collection `agent_knowledge`. Auth via `QDRANT_API_KEY` (env: `QDRANT__API_KEY`). **Health endpoint: `/livez`** (compose uses `/health` which returns 404). |
+| SearXNG | `searxng/searxng:latest` | 8080 | Metasearch; JSON API at `/search?format=json`. Healthcheck via `wget --spider` on port 8080. |
+| Qdrant | `qdrant/qdrant:latest` | 6333 (HTTP), 6334 (gRPC) | Vector DB for RAG collection `agent_knowledge`. Auth via `QDRANT_API_KEY` (env: `QDRANT__API_KEY`). Healthcheck via bash `/dev/tcp/localhost:6333`. |
 | Paperless-ngx | `paperless-ngx/paperless-ngx:latest` | 8010 | Document manager; consume dir mapped to `./paperless/consume/`. Healthcheck on `/api/stats`. |
 | Valkey | `valkey/valkey:8-alpine` | — (internal) | Cache for SearXNG (`redis://valkey:6379/0`) and Paperless (`redis://valkey:6379/1`). Healthcheck via `valkey-cli ping`. |
 | PostgreSQL | `postgres:16-alpine` | — (internal) | Paperless DB; user `paperless`, db `paperless`. Healthcheck via `pg_isready`. |
