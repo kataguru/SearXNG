@@ -17,7 +17,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.models import (
     Filter, FieldCondition, MatchValue, PointStruct,
-    VectorParams, SparseVectorParams, Distance,
+    VectorParams, SparseVectorParams, Distance, Modifier,
     Prefetch, NamedVector, NamedSparseVector, SparseVector, FusionQuery, Fusion,
 )
 from fastembed import TextEmbedding, SparseTextEmbedding
@@ -28,7 +28,12 @@ DEFAULT_OVERLAP_PCT = 15
 
 # ── Embedding model identifiers (lock these for reproducibility) ───────────────
 DENSE_MODEL_ID = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-SPARSE_MODEL_ID = "prithivida/Splade_PP_en_v1"
+SPARSE_MODEL_ID = "Qdrant/bm25"
+BM25_LANGUAGE = "finnish"  # Finnish tokenization, stopwords, and Snowball stemmer
+
+# ── Collection names ───────────────────────────────────────────────────────────
+COLLECTION_NAME_DEFAULT = "agent_knowledge"
+COLLECTION_NAME_BM25_V1 = "agent_knowledge_bm25_v1"
 
 
 class SharedAgentRAG:
@@ -36,7 +41,7 @@ class SharedAgentRAG:
         self,
         url: str = "http://localhost:6333",
         api_key: Optional[str] = None,
-        collection_name: str = "agent_knowledge",
+        collection_name: str = COLLECTION_NAME_DEFAULT,
     ):
         self.collection_name = collection_name
         api_key = api_key or os.getenv("QDRANT_API_KEY")
@@ -44,11 +49,20 @@ class SharedAgentRAG:
 
         # Load FastEmbed models locally — cached after first instantiation
         self.dense_model = TextEmbedding(DENSE_MODEL_ID)
-        self.sparse_model = SparseTextEmbedding(SPARSE_MODEL_ID)
+        self.sparse_model = SparseTextEmbedding(SPARSE_MODEL_ID, language=BM25_LANGUAGE)
 
         # Initialize collection
         self._init_collection()
         print(f"SharedAgentRAG initialized targeting collection '{self.collection_name}'.")
+
+    @classmethod
+    def create_bm25_v1(cls, url: str = "http://localhost:6333", api_key: Optional[str] = None) -> 'SharedAgentRAG':
+        """Create a SharedAgentRAG instance targeting the BM25 v1 collection.
+
+        This is a convenience method for initializing the new Finnish BM25 collection
+        without manually specifying the collection name.
+        """
+        return cls(url=url, api_key=api_key, collection_name=COLLECTION_NAME_BM25_V1)
 
     def list_collections(self) -> List[Dict[str, Any]]:
         try:
@@ -85,7 +99,9 @@ class SharedAgentRAG:
                             distance=Distance.COSINE,
                         )
                     },
-                    sparse_vectors_config={"sparse": SparseVectorParams()},
+                    sparse_vectors_config={
+                        "sparse": SparseVectorParams(modifier=Modifier.IDF)
+                    },
                 )
         except UnexpectedResponse as e:
             raise ConnectionError(
